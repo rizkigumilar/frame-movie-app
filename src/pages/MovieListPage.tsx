@@ -1,9 +1,9 @@
-import { Alert, AlertTitle, Box, Button } from "@mui/material";
+import { Alert, AlertTitle, Box, Button, Typography } from "@mui/material";
 import CategoryTabs from "../components/movies/CategoryTabs";
 import CollectionHeading from "../components/movies/CollectionHeading";
 import FeaturedMovie from "../components/movies/FeaturedMovie";
 import MovieGrid from "../components/movies/MovieGrid";
-import LoadMoreButton from "../components/movies/LoadMoreButton";
+import InfiniteScroll from "../components/movies/InfiniteScroll";
 import { isDemo } from "../api";
 import { demoMovies } from "../demo";
 import type { Category, Movie, View } from "../types";
@@ -68,7 +68,7 @@ export default function MovieListPage({
         {discovering && !query && (
           <CategoryTabs category={category} onChange={onCategoryChange} />
         )}
-        {error && discovering ? (
+        {error && discovering && page === 1 ? (
           <Alert severity="error" variant="outlined">
             <AlertTitle>We couldn’t load the movies</AlertTitle>
             <p>{error}</p>
@@ -83,9 +83,15 @@ export default function MovieListPage({
               isSaved={isSaved}
               onToggle={onToggle}
             />
-            {discovering && page < totalPages && (
-              <LoadMoreButton loading={loading} onClick={onLoadMore} />
-            )}
+            {discovering && error && page > 1 ? (
+              <Alert severity="error" variant="outlined" className="mt-6" action={<Button onClick={onRetry}>Try again</Button>}>
+                Couldn’t load more movies. {error}
+              </Alert>
+            ) : discovering && page < totalPages ? (
+              <InfiniteScroll key={`${category}:${query}`} page={page} loading={loading} onLoadMore={onLoadMore} />
+            ) : discovering && movies.length > 0 && !loading ? (
+              <Typography role="status" className="mt-8 text-center" color="text.secondary" variant="body2">You’ve reached the end of the results.</Typography>
+            ) : null}
           </>
         )}
       </Box>

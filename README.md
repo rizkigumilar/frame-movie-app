@@ -10,7 +10,7 @@ Material UI provides the interface components and icons. Tailwind CSS handles cu
 - **Movie cards:** view posters, titles, release years, and ratings, with links to movie details.
 - **Title search:** submit a title to search TMDB. Search results replace the category listing; clear the search to return to browsing.
 - **Movie details:** view the synopsis, genres, release year, runtime, rating, director, and main cast, with a button to return to the list.
-- **Load-more pagination:** append additional results without replacing already loaded movies.
+- **Infinite scroll:** automatically load additional results near the bottom of the list without replacing already loaded movies.
 - **Watchlist:** save or remove movies. The watchlist is stored in the current browser using `localStorage`.
 - **Responsive interface:** mobile and desktop layouts, dark theme, loading skeletons, empty states, and retry actions.
 - **Demo mode:** explore a bundled sample collection when no TMDB credential is configured.
@@ -137,7 +137,7 @@ The test suite includes:
 
 - **List page tests:** movie content and detail links, category selection, search-result presentation, loading and empty states, retry actions, pagination, and watchlist behavior.
 - **Detail page tests:** movie metadata, synopsis, director and cast, loading and error states, retry and back actions, watchlist callbacks, and missing-data fallbacks.
-- **Application integration tests:** title search, category changes, loading additional results, persistent watchlist updates, detail navigation, and error recovery.
+- **Application integration tests:** title search, category changes, automatically loading additional results, persistent watchlist updates, detail navigation, and error recovery.
 
 Tests use fixtures and mocked data boundaries, so they do not require a TMDB credential or live API access. Shared test helpers provide the MUI theme and an isolated storage implementation.
 
@@ -182,7 +182,7 @@ movie-apps/
 
 ### Data and state
 
-UI components receive typed data and callbacks through props. Custom hooks manage data fetching, navigation, and watchlist state. Requests use `AbortController` to cancel obsolete requests. Additional list pages are appended with duplicate movie IDs removed, and pagination is capped at 500 pages.
+UI components receive typed data and callbacks through props. Custom hooks manage data fetching, navigation, and watchlist state. Requests use `AbortController` to cancel obsolete requests. Additional list pages are appended with duplicate movie IDs removed, and pagination is capped at 500 pages. An `IntersectionObserver` watches a sentinel below the grid with a 300px bottom margin. Loading and per-page guards prevent duplicate requests. Observation stops at the final page, on errors, and in the watchlist. A pagination failure retains loaded cards and provides a retry action.
 
 Movie detail requests append `credits` to retrieve cast and crew in the same API call. Requests use `en-US`; searches exclude adult results.
 

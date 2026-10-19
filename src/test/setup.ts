@@ -1,6 +1,8 @@
+import { installIntersectionObserverMock, resetIntersectionObservers } from './intersectionObserver'
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+installIntersectionObserverMock()
 const store = new Map<string,string>()
 vi.stubGlobal('localStorage', {getItem:(key:string)=>store.get(key)??null,setItem:(key:string,value:string)=>store.set(key,value),removeItem:(key:string)=>store.delete(key),clear:()=>store.clear()})
-afterEach(()=>{cleanup();store.clear();window.history.replaceState(null,'','/');vi.clearAllMocks()})
+afterEach(()=>{cleanup();resetIntersectionObservers();store.clear();window.history.replaceState(null,'','/');vi.clearAllMocks()})

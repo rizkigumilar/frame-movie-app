@@ -1,3 +1,4 @@
+import { intersect } from '../test/intersectionObserver';
 import type { ComponentProps } from "react";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -115,7 +116,7 @@ describe("MovieListPage", () => {
       screen.getByText("Try a different title or explore a category."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Discover more movies" }),
+      screen.queryByRole("status", { name: "Movie pagination" }),
     ).not.toBeInTheDocument();
   });
 
@@ -126,30 +127,68 @@ describe("MovieListPage", () => {
       screen.queryByRole("link", { name: `View ${movieFixture.title}` }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Discover more movies" }),
+      screen.queryByRole("status", { name: "Movie pagination" }),
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(props.onRetry).toHaveBeenCalledOnce();
   });
 
-  it("requests another page, keeps existing cards while loading, and hides pagination at the end", async () => {
-    const { user, props, rerender } = setup();
-    await user.click(
-      screen.getByRole("button", { name: "Discover more movies" }),
-    );
+  it("automatically requests the next page only once when the sentinel becomes visible", () => {
+    const { props } = setup();
+    const sentinel = screen.getByRole("status", { name: "Movie pagination" });
+    intersect(sentinel, false);
+    expect(props.onLoadMore).not.toHaveBeenCalled();
+    intersect(sentinel);
+    intersect(sentinel);
     expect(props.onLoadMore).toHaveBeenCalledOnce();
-    rerender(<MovieListPage {...props} page={2} totalPages={3} loading />);
-    expect(screen.getByRole("button", { name: "Loading…" })).toBeDisabled();
-    expect(
-      screen.getByRole("link", { name: `View ${movieFixture.title}` }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("status", { name: "Loading movies" }),
-    ).not.toBeInTheDocument();
+  });
+
+  it("keeps existing cards while loading and stops observing at the last page", () => {
+    const { props, rerender } = setup({ page: 2, totalPages: 3, loading: true });
+    const sentinel = screen.getByRole("status", { name: "Movie pagination" });
+    expect(sentinel).toHaveTextContent("Loading more movies…");
+    intersect(sentinel);
+    expect(props.onLoadMore).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: `View ${movieFixture.title}` })).toBeInTheDocument();
+    rerender(<MovieListPage {...props} loading={false} />);
+    intersect(sentinel);
+    expect(props.onLoadMore).toHaveBeenCalledOnce();
+    rerender(<MovieListPage {...props} page={3} loading={false} />);
+    expect(screen.queryByRole("status", { name: "Movie pagination" })).not.toBeInTheDocument();
+    expect(screen.getByText("You’ve reached the end of the results.")).toBeInTheDocument();
+    intersect(sentinel);
+    expect(props.onLoadMore).toHaveBeenCalledOnce();
+  });
+
+  it("retains loaded movies after a pagination error and allows retry", async () => {
+    const { user, props } = setup({ page: 2, totalPages: 3, error: "Connection unavailable" });
+    expect(screen.getByRole("link", { name: `View ${movieFixture.title}` })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn’t load more movies.");
+    expect(screen.queryByRole("status", { name: "Movie pagination" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(props.onRetry).toHaveBeenCalledOnce();
+  });
+
+  it("continues after another page arrives and resets the guard for a new category or query", () => {
+    const { props, rerender } = setup({ totalPages: 4 });
+    intersect(screen.getByRole("status", { name: "Movie pagination" }));
     rerender(<MovieListPage {...props} page={2} />);
-    expect(
-      screen.queryByRole("button", { name: "Discover more movies" }),
-    ).not.toBeInTheDocument();
+    intersect(screen.getByRole("status", { name: "Movie pagination" }));
+    expect(props.onLoadMore).toHaveBeenCalledTimes(2);
+    rerender(<MovieListPage {...props} category="popular" />);
+    intersect(screen.getByRole("status", { name: "Movie pagination" }));
+    expect(props.onLoadMore).toHaveBeenCalledTimes(3);
+    rerender(<MovieListPage {...props} category="popular" query="Lighthouse" />);
+    intersect(screen.getByRole("status", { name: "Movie pagination" }));
+    expect(props.onLoadMore).toHaveBeenCalledTimes(4);
+  });
+
+  it("disconnects the observer on unmount", () => {
+    const { props, unmount } = setup();
+    const sentinel = screen.getByRole("status", { name: "Movie pagination" });
+    unmount();
+    intersect(sentinel);
+    expect(props.onLoadMore).not.toHaveBeenCalled();
   });
 
   it("shows only saved movies in the watchlist even when discovery is loading or failed", async () => {
@@ -175,7 +214,7 @@ describe("MovieListPage", () => {
       screen.queryByRole("group", { name: "Movie categories" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Discover more movies" }),
+      screen.queryByRole("status", { name: "Movie pagination" }),
     ).not.toBeInTheDocument();
     await user.click(
       screen.getByRole("button", {
